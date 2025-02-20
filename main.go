@@ -3,41 +3,41 @@ package main
 import (
 	"discount-service/api"
 	"discount-service/config"
-	"discount-service/kafka"
 	"discount-service/models"
 	"discount-service/repository"
-	"discount-service/service"
-
 	"github.com/gin-gonic/gin"
 	"log"
 )
 
 func main() {
+	// Load environment variables
 	config.LoadEnv()
 
+	// Connect to the database
 	db, err := config.ConnectDB()
 	if err != nil {
-		log.Fatalf("Veritabanına bağlanılamadı: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	db.AutoMigrate(&models.Discount{})
+	// Run database migrations
+	if err := db.AutoMigrate(&models.Discount{}); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
+	}
 
-	repo := repository.NewDiscountRepository(db)
-	discountService := service.NewDiscountService(repo)
-	apiHandler := api.NewDiscountAPI(discountService)
+	// Initialize repository
+	discountRepository := repository.NewDiscountRepository(db)
 
+	// Initialize API Handler
+	apiHandler := api.NewDiscountAPI(discountRepository)
+
+	// Create Gin router
 	r := gin.Default()
-	r.GET("/discounts/:customerID", apiHandler.GetCustomerDiscounts)
 
-	go func() {
-		if err := r.Run(":8083"); err != nil {
-			log.Fatalf("API başlatılamadı: %v", err)
-		}
-	}()
+	// Define API routes
+	r.POST("/discounts", apiHandler.ApplyDiscount)
 
-	kafkaConfig, brokers := config.KafkaConfig()
-	consumer := kafka.NewKafkaConsumer(discountService, kafkaConfig)
-	go consumer.ConsumeMessages(brokers, "order.created", "discount-service-group")
-
-	select {}
+	// Start the server
+	if err := r.Run(":8083"); err != nil {
+		log.Fatalf("Failed to start API server: %v", err)
+	}
 }
