@@ -16,13 +16,13 @@ func NewDiscountRepository(db *gorm.DB) *DiscountRepository {
 }
 
 func (r *DiscountRepository) Save(discount *models.Discount) error {
-	result := r.db.Create(discount)
+	result := r.db.Debug().Create(discount)
 
 	if result.Error != nil {
-		log.Printf("🚨 Discount save failed: %v", result.Error)
+		log.Printf("Discount save failed: %v", result.Error)
 		return result.Error
 	}
 
-	log.Printf("✅ Discount saved: %+v", discount)
+	log.Printf("Discount saved: %+v", discount)
 	return nil
 }
